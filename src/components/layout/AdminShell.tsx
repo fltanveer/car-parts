@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { useDb } from "@/lib/db/store";
+import { useDb, useHydrated } from "@/lib/db/store";
 import { staffRoleLabel } from "@/lib/labels";
 import { switchStaff } from "@/lib/db/actions";
 import { useT } from "../providers/LangProvider";
@@ -65,7 +65,9 @@ const groups: { bn: string; en: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/catalog/products", bn: "মাস্টার পণ্য", en: "Master products", icon: Boxes },
       { href: "/admin/catalog/listings", bn: "সব লিস্টিং", en: "All listings", icon: ListChecks },
-      { href: "/admin/catalog/categories", bn: "ক্যাটাগরি ও অ্যাট্রিবিউট", en: "Categories", icon: ScrollText },
+      { href: "/admin/catalog/categories", bn: "ক্যাটাগরি", en: "Categories", icon: ScrollText },
+      { href: "/admin/catalog/attributes", bn: "অ্যাট্রিবিউট টেমপ্লেট", en: "Attributes", icon: ListChecks },
+      { href: "/admin/catalog/brands", bn: "ব্র্যান্ড", en: "Brands", icon: Boxes },
       { href: "/admin/catalog/vehicles", bn: "গাড়ির ডেটা", en: "Vehicles", icon: Car },
       { href: "/admin/catalog/dictionary", bn: "শব্দভাণ্ডার", en: "Dictionary", icon: Search },
     ],
@@ -107,6 +109,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const counts = useCounts();
   const staff = useDb((s) => s.staff);
   const me = useDb((s) => s.staff.find((x) => x.id === s.session.staffId) ?? null);
+  const hydrated = useHydrated();
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -195,7 +198,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </select>
           <PanelSwitch />
         </header>
-        <main className="flex-1 px-3 py-5 lg:px-6">{children}</main>
+        {/* Admin data is all client-side (times, localStorage), so render it only after hydration. */}
+        <main className="flex-1 px-3 py-5 lg:px-6">{hydrated ? children : <div className="h-40 animate-pulse rounded-2xl bg-card" />}</main>
       </div>
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} onGo={(href) => { setSearchOpen(false); router.push(href); }} />}
     </div>

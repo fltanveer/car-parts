@@ -25,6 +25,8 @@ export const deliveryDeadlineDays = (district: string) =>
   zoneForDistrict(district) === "same_city" ? settings.delivery_days_same_city : settings.delivery_days_other;
 
 export const smallOrderShortfall = (subtotal: number) => Math.max(0, settings.min_order_value - subtotal);
+/** Extra delivery charge on a parcel below the minimum order value (file 01 §6.1). */
+export const smallOrderSurcharge = (subtotal: number) => (smallOrderShortfall(subtotal) > 0 ? settings.small_order_surcharge : 0);
 
 // ---------- payment (8.2 + legal 10% cap, section 5) ----------
 export interface PaymentOption {
@@ -42,9 +44,9 @@ export const getPaymentOptions = (a: { total: number; deliveryTotal: number; isN
   const codAllowed = !a.forceAdvance && a.total <= settings.cod_limit && !a.storePickupOnly;
   if (codAllowed && !a.isNewCustomer) opts.push({ method: "cod", advance: 0, cod: a.total });
   if (!a.storePickupOnly && a.deliveryTotal > 0) {
-    opts.push({ method: "delivery_advance_cod", advance: advanceForDelivery, cod: a.total - advanceForDelivery, recommended: !codAllowed || a.isNewCustomer });
+    opts.push({ method: "delivery_advance_cod", advance: advanceForDelivery, cod: a.total - advanceForDelivery, recommended: true });
   }
-  if (codAllowed && a.isNewCustomer) opts.push({ method: "cod", advance: 0, cod: a.total });
+  // New or flagged customers pay the delivery charge first (8.2); plain COD is for repeat customers.
   // Escrow gateway: full amount is fine because the platform holds it (legal exemption).
   opts.push({ method: "online", advance: a.total, cod: 0, recommended: a.total > settings.cod_limit });
   return opts;

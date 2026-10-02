@@ -82,7 +82,14 @@ const noop = () => () => {};
 export const useHydrated = () => useSyncExternalStore(noop, () => true, () => false);
 
 export const resetDemo = () => {
+  // Panel-specific overlays (admin edits, ops notes) live under the same prefix.
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith("gaarihub:") && k !== KEY).forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* storage blocked */
+  }
   state = buildSeed();
   persist();
-  listeners.forEach((l) => l());
+  // Overlays keep in-memory copies, so reload to start every panel clean.
+  window.location.reload();
 };

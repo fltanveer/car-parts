@@ -85,6 +85,12 @@ export const isPublic = (s: DB, l: Listing) => {
 export const publicListings = (s: DB) => s.listings.filter((l) => isPublic(s, l));
 export const offersForProduct = (s: DB, productId: string) => publicListings(s).filter((l) => l.catalog_product_id === productId);
 
+/** Parcel size for a quote: its linked listing, else the requested category's default. */
+export const quoteSizeClass = (s: DB, q: { listing_id: string | null; request_id: string; item_index: number }) =>
+  listingById(s, q.listing_id)?.size_class ??
+  getCategory(requestById(s, q.request_id)?.items[q.item_index]?.category_id ?? null)?.default_size_class ??
+  "medium";
+
 export const vendorListings = (s: DB, vendorId: string) => s.listings.filter((l) => l.vendor_id === vendorId);
 export const vendorOrdersOf = (s: DB, vendorId: string) => s.vendorOrders.filter((o) => o.vendor_id === vendorId);
 export const orderById = (s: DB, id: string | null) => s.orders.find((o) => o.id === id) ?? null;
@@ -96,7 +102,7 @@ export const vendorBalance = (s: DB, vendorId: string, now = Date.now()) => {
   const entries = s.ledger.filter((e) => e.vendor_id === vendorId);
   const available = entries.filter((e) => new Date(e.available_at).getTime() <= now).reduce((a, e) => a + e.amount, 0);
   const pending = entries.filter((e) => new Date(e.available_at).getTime() > now).reduce((a, e) => a + e.amount, 0);
-  const monthStart = new Date();
+  const monthStart = new Date(now);
   monthStart.setDate(1);
   const paidThisMonth = s.payouts.filter((p) => p.vendor_id === vendorId && p.status === "paid" && p.paid_at && new Date(p.paid_at) >= monthStart).reduce((a, p) => a + p.amount, 0);
   const requested = s.payouts.filter((p) => p.vendor_id === vendorId && (p.status === "requested" || p.status === "processing")).reduce((a, p) => a + p.amount, 0);

@@ -1,4 +1,4 @@
-import type { Fulfillment, SizeClass } from "../types";
+import type { Brand, Fulfillment, SizeClass } from "../types";
 
 // Mirrors the `settings` key-value table (file 00 12.13). Every business
 // number is read from here, never hardcoded in screens.
@@ -108,7 +108,7 @@ export const locations: { division: string; districts: { name: string; zone: Zon
 export const zoneForDistrict = (district: string): Zone =>
   locations.flatMap((d) => d.districts).find((d) => d.name === district)?.zone ?? "other";
 
-export const brands = [
+export const brands: Brand[] = [
   { id: "br-toyota", name: "Toyota", type: "oem_vehicle", country: "Japan" },
   { id: "br-honda", name: "Honda", type: "oem_vehicle", country: "Japan" },
   { id: "br-denso", name: "Denso", type: "oem_supplier", country: "Japan" },
@@ -124,4 +124,4 @@ export const brands = [
   { id: "br-shell", name: "Shell", type: "aftermarket", country: "Malaysia" },
   { id: "br-dunlop", name: "Dunlop", type: "aftermarket", country: "Thailand" },
   { id: "br-local", name: "দেশি", type: "local", country: "Bangladesh" },
-] as const;
+];

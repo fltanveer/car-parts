@@ -234,11 +234,15 @@ export const buildSeed = (): DB => {
       { from: "accepted", to: "ready_to_ship", actor: "vendor", note: null, at: iso(-6 * HOUR) },
     ],
   };
-  const old: Order = { ...other, id: "od-4", order_no: "GH-4702", created_at: iso(-12 * DAY), user_phone: "+8801512000000", customer_name: "মাহফুজ", vendor_order_ids: ["vo-6"], payment_status: "paid", subtotal: 9000, grand_total: 9350 };
+  const old: Order = {
+    ...other, id: "od-4", order_no: "GH-4702", created_at: iso(-12 * DAY), user_phone: "+8801512000000", customer_name: "মাহফুজ", vendor_order_ids: ["vo-6"],
+    payment_status: "paid", subtotal: 9000, delivery_total: 350, grand_total: 9350,
+    payments: [{ id: "py-4", method: "cod", amount: 9350, purpose: "cod_collection", sender_number: null, transaction_id: null, status: "verified", verified_by: "st-fin", created_at: iso(-1 * DAY) }],
+  };
   const vo6: VendorOrder = {
     ...vo1, id: "vo-6", order_id: "od-4", vendor_id: "v-rahman", sub_order_no: "GH-4702-A", status: "delivered",
     items: [{ id: "oi-7", listing_id: "ls-25", quote_id: null, snapshot: snap("Noah R80 সামনের বাম্পার", { image: "ph:body", condition: "used_import", grade: "C" }), unit_price: 9000, qty: 1, line_total: 9000 }],
-    subtotal: 9000, delivery_charge: 350, vendor_payable: 9000, cod_amount: 9350, delivered_at: iso(-1 * DAY), return_window_ends_at: iso(2 * DAY), settled_at: null, reviewed: false,
+    subtotal: 9000, delivery_charge: 350, vendor_payable: 9000, cod_amount: 9350, courier: "RedX", tracking_no: "RX5521098", delivered_at: iso(-1 * DAY), return_window_ends_at: iso(2 * DAY), settled_at: null, reviewed: false,
   };
 
   const claims: Claim[] = [
@@ -323,6 +327,7 @@ export const buildSeed = (): DB => {
     { id: "st-fin", name: "মিতু", phone: "+8801700000007", roles: ["finance"], active: true },
     { id: "st-logi", name: "রাজু", phone: "+8801700000008", roles: ["logistics"], active: true },
     { id: "st-ops", name: "শাহেদ", phone: "+8801700000009", roles: ["ops_manager"], active: true },
+    { id: "st-car", name: "লিমা", phone: "+8801700000010", roles: ["car_desk"], active: true },
   ];
 
   return {
@@ -331,7 +336,10 @@ export const buildSeed = (): DB => {
     prefs: { bnDigits: true, largeText: false },
     profiles: [{ phone: DEMO_PHONE, full_name: "রাকিব হাসান", customer_type: "personal", large_text: false, force_advance: false, is_blocked: false, followed_vendor_ids: ["v-rahman"], notify_sms: true }],
     addresses: [address],
-    vehicles: [vehicle],
+    vehicles: [
+      vehicle,
+      { ...vehicle, id: "uv-x", owner: "+8801612000000", generation_id: null, engine_id: null, chassis_number: null, registration_no: null, nickname: null, color: null, odometer_km: null, needs_admin_setup: true, papers_photo_url: "ph:doc", documents: [], service_logs: [], expenses: [], drivers: [] },
+    ],
     activeVehicleId: null,
     cart: [],
     vendors: seedVendors,
@@ -345,7 +353,7 @@ export const buildSeed = (): DB => {
     reviews,
     ledger,
     payouts,
-    refunds: [{ id: "rf-1", order_id: "od-3", vendor_order_id: null, claim_id: null, amount: 450, method: "bkash", destination: "01612•••000", status: "pending", due_by: iso(30 * HOUR), processed_at: null, reference: null, created_at: iso(-42 * HOUR) }],
+    refunds: [{ id: "rf-1", order_id: "od-4", vendor_order_id: "vo-6", claim_id: null, amount: 350, method: "bkash", destination: "01512•••000", status: "pending", due_by: iso(30 * HOUR), processed_at: null, reference: null, created_at: iso(-42 * HOUR) }],
     threads,
     callRequests: [{ id: "cr-1", requester_phone: "+8801912000000", target_type: "support", target_id: null, context: "R-10232 ভয়েস রিকোয়েস্ট", status: "pending", created_at: iso(-20 * 60_000) }],
     notifications,

@@ -6,14 +6,15 @@
 // three panels stay consistent.
 import { settings } from "../mock/settings";
 import {
-  acceptBy, commissionFor, deliverBy, handoverBy, isManualAdvanceAllowed, maskContactInfo, pickupCode, returnWindowEnds, scoreQuotes,
+  acceptBy, commissionFor, smallOrderSurcharge, deliverBy, handoverBy, isManualAdvanceAllowed, maskContactInfo, pickupCode, returnWindowEnds, scoreQuotes,
   subOrderDeliveryCharge,
 } from "../rules";
+import { vendorOrderStatusLabel } from "../labels";
 import type {
   Address, AppNotification, ChatMessage, ChatThread, Claim, ClaimType, Fulfillment, Listing, MediaItem, Order, OrderItem, PartRequest,
   PaymentMethod, Quote, StatusEvent, UserVehicle, Vendor, VendorOrder, VendorOrderStatus, VoiceNote,
 } from "../types";
-import { describeVehicle, fitsVehicle, getCategory, listingById, matchVendors, vendorById } from "./queries";
+import { describeVehicle, fitsVehicle, getCategory, listingById, matchVendors, quoteSizeClass, vendorById } from "./queries";
 import { DAY, HOUR, iso, uid, type DB } from "./seed";
 import { getDb, update } from "./store";
 
@@ -32,9 +33,12 @@ export const audit = (action: string, target: string) =>
 // ======================================================================
 // session & prefs
 // ======================================================================
+/** Log in and move anything saved as a guest (cars, addresses) to the account. */
 export const loginCustomer = (phone: string) =>
   update((s) => ({
     session: { ...s.session, customerPhone: phone },
+    vehicles: s.vehicles.map((v) => (v.owner === "guest" ? { ...v, owner: phone, is_primary: v.is_primary && !s.vehicles.some((x) => x.owner === phone && x.is_primary) } : v)),
+    addresses: s.addresses.map((a) => (a.owner === "guest" ? { ...a, owner: phone, phone: a.phone || phone } : a)),
     profiles: s.profiles.some((p) => p.phone === phone)
       ? s.profiles
       : [...s.profiles, { phone, full_name: null, customer_type: "personal", large_text: false, force_advance: false, is_blocked: false, followed_vendor_ids: [], notify_sms: true }],
@@ -205,7 +209,7 @@ export const clarifyAndBroadcast = (id: string, patch: Pick<PartRequest, "genera
     requests: s.requests.map((r) =>
       r.id === id
         ? {
-            ...r, ...patch, status: "open", broadcast_at: iso(), assigned_admin: s.session.staffId,
+            ...r, ...patch, status: s.quotes.some((q) => q.request_id === id && q.status === "submitted") ? "quotes_received" : "open", broadcast_at: iso(), assigned_admin: s.session.staffId,
             matches: [...r.matches, ...vendorIds.filter((v) => !r.matches.some((m) => m.vendor_id === v)).map((v) => ({ vendor_id: v, notified_at: iso(), seen_at: null, declined: false, decline_reason: null }))],
           }
         : r,
@@ -335,7 +339,9 @@ export const placeOrder = (a: {
       return { id: uid(), listing_id: l.listing?.id ?? null, quote_id: l.quote?.id ?? null, snapshot: lineSnapshot(s, l, genId), unit_price: unit, qty: l.qty, line_total: unit * l.qty };
     });
     const subtotal = items.reduce((t, x) => t + x.line_total, 0);
-    const delivery = subOrderDeliveryCharge(a.address.district, lines.map((l) => l.listing?.size_class ?? "medium"), fulfillment);
+    const delivery =
+      subOrderDeliveryCharge(a.address.district, lines.map((l) => l.listing?.size_class ?? (l.quote ? quoteSizeClass(s, l.quote) : "medium")), fulfillment) +
+      (fulfillment === "store_pickup" ? 0 : smallOrderSurcharge(subtotal));
     const { commission, payable } = commissionFor(vendor, subtotal);
     return {
       id: uid(), order_id: orderId, vendor_id: vendorId, sub_order_no: `${orderNo}-${letters[i]}`, status: "pending_vendor", fulfillment, items, subtotal,
@@ -354,7 +360,7 @@ export const placeOrder = (a: {
   const order: Order = {
     id: orderId, order_no: orderNo, created_at: iso(), user_phone: phone, customer_name: a.customerName, address: a.address, user_vehicle_id: a.userVehicleId,
     subtotal, delivery_total: deliveryTotal, discount_total: 0, grand_total: grand, payment_method: a.paymentMethod,
-    payment_status: a.advance > 0 || a.paymentMethod === "online" ? "unpaid" : "unpaid", advance_due: a.paymentMethod === "online" ? grand : a.advance,
+    payment_status: "unpaid", advance_due: a.paymentMethod === "online" ? grand : a.advance,
     source: a.source, vendor_order_ids: vendorOrders.map((v) => v.id), payments: [],
   };
   const quoteIds = a.lines.map((l) => l.quote?.id).filter(Boolean) as string[];
@@ -371,10 +377,10 @@ export const placeOrder = (a: {
     }),
     quotes: quoteIds.length
       ? st.quotes.map((q) => {
-          const req = st.quotes.find((x) => quoteIds.includes(x.id));
           if (quoteIds.includes(q.id)) return { ...q, status: "accepted" };
-          if (req && q.request_id === req.request_id && q.item_index === req.item_index && q.status === "submitted") return { ...q, status: "not_selected" };
-          return q;
+          // Other quotes for the same request item lose (each accepted quote checks its own item).
+          const rival = st.quotes.some((x) => quoteIds.includes(x.id) && x.request_id === q.request_id && x.item_index === q.item_index);
+          return rival && q.status === "submitted" ? { ...q, status: "not_selected" } : q;
         })
       : st.quotes,
     requests: quoteIds.length
@@ -410,18 +416,27 @@ export const payOnline = (orderId: string) =>
 
 /** Finance verifies a manual advance (file 03 13.1). */
 export const verifyPayment = (orderId: string, paymentId: string, ok: boolean) => {
+  const order = getDb().orders.find((o) => o.id === orderId);
+  const pay = order?.payments.find((p) => p.id === paymentId);
+  if (!order || !pay) return;
   update((s) => ({
     orders: s.orders.map((o) => {
       if (o.id !== orderId) return o;
       const payments = o.payments.map((p) => (p.id === paymentId ? { ...p, status: ok ? ("verified" as const) : ("rejected" as const), verified_by: s.session.staffId } : p));
       const paid = payments.filter((p) => p.status === "verified").reduce((t, p) => t + p.amount, 0);
-      return { ...o, payments, payment_status: paid >= o.grand_total ? "paid" : paid > 0 ? "partial" : "unpaid", advance_due: ok ? 0 : o.advance_due };
+      return { ...o, payments, payment_status: paid >= o.grand_total ? "paid" : paid > 0 ? "partial" : "unpaid", advance_due: ok ? Math.max(0, o.advance_due - pay.amount) : o.advance_due };
     }),
     vendorOrders: ok
       ? s.vendorOrders.map((v) => (v.order_id === orderId && !v.handover_by ? { ...v, handover_by: handoverBy(Date.now()), deliver_by: deliverBy(Date.now(), s.orders.find((o) => o.id === orderId)!.address.district) } : v))
       : s.vendorOrders,
+    notifications: notify(s, {
+      audience: "customer", target: order.user_phone,
+      title: ok ? "পেমেন্ট নিশ্চিত হয়েছে" : "পেমেন্ট মেলেনি",
+      body: ok ? `${order.order_no}: দোকানগুলো এখন পাঠাবে` : `${order.order_no}: Transaction ID আবার দেখে দিন`,
+      link: `/my/orders/${orderId}`,
+    }),
   }));
-  audit(ok ? "পেমেন্ট যাচাই" : "পেমেন্ট বাতিল", orderId);
+  audit(ok ? "পেমেন্ট যাচাই" : "পেমেন্ট বাতিল", order.order_no);
 };
 
 // ======================================================================
@@ -474,7 +489,7 @@ export const setVendorOrderStatus = (id: string, to: VendorOrderStatus, actor: S
       refunds: refundNeeded
         ? [{ id: uid(), order_id: order.id, vendor_order_id: id, claim_id: null, amount: Math.min(vo.subtotal + vo.delivery_charge, order.payments.filter((p) => p.status === "verified").reduce((t, p) => t + p.amount, 0)), method: "bkash", destination: order.user_phone, status: "pending", due_by: iso(settings.refund_hours_unfulfillable * HOUR), processed_at: null, reference: null, created_at: iso() }, ...s.refunds]
         : s.refunds,
-      notifications: notify(s, { audience: "customer", target: order.user_phone, title: `${vo.sub_order_no}: ${tone || "অবস্থা বদলেছে"}`, body: to, link: `/my/orders/${order.id}` }),
+      notifications: notify(s, { audience: "customer", target: order.user_phone, title: `${vo.sub_order_no}: ${tone || "অবস্থা বদলেছে"}`, body: vendorOrderStatusLabel[to].bn, link: `/my/orders/${order.id}` }),
     };
   });
 
@@ -515,8 +530,18 @@ const setClaim = (id: string, to: Claim["status"], actor: StatusEvent["actor"], 
   update((s) => ({ claims: s.claims.map((c) => (c.id === id ? { ...c, ...patch, status: to, history: [...c.history, ev(c.status, to, actor, note)] } : c)) }));
 
 export const escalateClaim = (id: string) => setClaim(id, "escalated", "customer");
-export const vendorAcceptClaim = (id: string, resolution: "refund" | "replace" | "partial_refund", amount: number | null) =>
+export const vendorAcceptClaim = (id: string, resolution: "refund" | "replace" | "partial_refund", amount: number | null) => {
   setClaim(id, resolution === "replace" ? "resolved_replace" : "resolved_refund", "vendor", { resolution, refund_amount: amount, vendor_response: "মেনে নিয়েছে" });
+  if (resolution === "replace" || !amount) return;
+  // Seller agreed to refund: customer refund + debit from the seller's wallet.
+  const s = getDb();
+  const c = s.claims.find((x) => x.id === id)!;
+  const vo = s.vendorOrders.find((v) => v.id === c.vendor_order_id)!;
+  update((st) => ({
+    refunds: [{ id: uid(), order_id: vo.order_id, vendor_order_id: vo.id, claim_id: id, amount, method: "bkash", destination: c.user_phone, status: "pending", due_by: iso(settings.refund_hours_unfulfillable * HOUR), processed_at: null, reference: null, created_at: iso() }, ...st.refunds],
+    ledger: [{ id: uid(), vendor_id: vo.vendor_id, vendor_order_id: vo.id, entry_type: "refund_debit", amount: -amount, available_at: iso(), note: `দাবি ${c.claim_no}`, created_at: iso() }, ...st.ledger],
+  }));
+};
 export const vendorDisputeClaim = (id: string, response: string) => setClaim(id, "vendor_disputed", "vendor", { vendor_response: response }, response);
 
 /** Admin decision (file 03 11): money moves from escrow or the seller wallet. */
@@ -524,8 +549,9 @@ export const decideClaim = (id: string, resolution: "refund" | "replace" | "part
   const s = getDb();
   const c = s.claims.find((x) => x.id === id)!;
   const vo = s.vendorOrders.find((v) => v.id === c.vendor_order_id)!;
+  const to: Claim["status"] = resolution === "rejected" ? "resolved_rejected" : resolution === "replace" ? "resolved_replace" : "resolved_refund";
   update((st) => ({
-    claims: st.claims.map((x) => (x.id === id ? { ...x, status: resolution === "rejected" ? "resolved_rejected" : resolution === "replace" ? "resolved_replace" : "resolved_refund", resolution, refund_amount: amount, decision_note: note, history: [...x.history, ev(x.status, "resolved", "admin", note)] } : x)),
+    claims: st.claims.map((x) => (x.id === id ? { ...x, status: to, resolution, refund_amount: amount, decision_note: note, history: [...x.history, ev(x.status, to, "admin", note)] } : x)),
     refunds: amount ? [{ id: uid(), order_id: vo.order_id, vendor_order_id: vo.id, claim_id: id, amount, method: "bkash", destination: c.user_phone, status: "pending", due_by: iso(settings.refund_hours_unfulfillable * HOUR), processed_at: null, reference: null, created_at: iso() }, ...st.refunds] : st.refunds,
     ledger: amount ? [{ id: uid(), vendor_id: vo.vendor_id, vendor_order_id: vo.id, entry_type: "refund_debit", amount: -amount, available_at: iso(), note: `দাবি ${c.claim_no}`, created_at: iso() }, ...st.ledger] : st.ledger,
   }));

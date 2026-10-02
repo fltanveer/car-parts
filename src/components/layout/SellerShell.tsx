@@ -27,7 +27,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
     { href: "/seller/requests", icon: Hand, label: tx("দাম চাই", "Requests"), active: path.startsWith("/seller/requests"), count: newRequests },
     { href: "/seller/add", icon: Plus, label: tx("পণ্য যোগ", "Add"), active: path.startsWith("/seller/add"), big: true },
     { href: "/seller/orders", icon: Package, label: tx("অর্ডার", "Orders"), active: path.startsWith("/seller/orders"), count: newOrders },
-    { href: "/seller/more", icon: Menu, label: tx("আরও", "More"), active: ["/seller/more", "/seller/products", "/seller/money", "/seller/messages", "/seller/reviews", "/seller/shop", "/seller/staff", "/seller/help", "/seller/claims", "/seller/verify"].some((p) => path.startsWith(p)) },
+    { href: "/seller/more", icon: Menu, label: tx("আরও", "More"), active: ["/seller/more", "/seller/products", "/seller/money", "/seller/messages", "/seller/reviews", "/seller/shop", "/seller/staff", "/seller/help", "/seller/claims", "/seller/verify", "/seller/notifications", "/seller/cars", "/seller/services"].some((p) => path.startsWith(p)) },
   ];
 
   return (
