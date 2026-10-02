@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PartsBD: customer site (frontend)
 
-## Getting Started
+Frontend for the customer site described in `../carparts-01-user-plan.md`. It has no backend yet: all data comes from an in-memory catalog and a client-side store saved in `localStorage` and IndexedDB.
 
-First, run the development server:
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run build && npm start   # production build (the service worker is registered only here)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What works
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Every route in spec section 6 exists and works end to end against the mock data:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Home, category, search (Bangla / English / Banglish, part numbers with or without hyphens, synonyms), part detail with fitment check.
+- My car: pick from a list, enter a chassis number, or upload a photo of the papers. Saved locally.
+- Part request by voice (real `MediaRecorder`), photo or text. Guests can send one with just a phone number. After sending, the user sees a confirmation and a status page with quotes.
+- Cart and checkout. Delivery charges and payment options come from the rules in spec 8.
+- Manual bKash/Nagad advance payment, order tracking, invoice and warranty card, returns and warranty claims.
+- Chat with voice notes and photos, account, help, and policy pages.
+- Bangla by default with an English toggle (the `lang` cookie). Bangla digits can be turned off in the account page.
 
-## Learn More
+### Demo data and buttons
 
-To learn more about Next.js, take a look at the following resources:
+The first load seeds a quoted request (R-10231), a shipped order and a delivered order. The delivered order includes an electrical part with warranty, so you can try the claim rules. Pages also have buttons labelled **ডেমো** that do what the admin panel will do later: send a quote, verify a payment, or move an order to the next status. **Account → ডেমো ডেটা রিসেট করুন** clears everything.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Login is simulated: any 6-digit code works.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Structure
 
-## Deploy on Vercel
+```
+src/lib/types.ts        types that mirror the DB schema (spec section 10)
+src/lib/api.ts          catalog reads (the future Supabase layer; keep these signatures)
+src/lib/store.ts        data the user owns (the future server actions)
+src/lib/rules.ts        business rules from spec section 8, as pure functions
+src/lib/mock/           seed catalog, vehicles, settings, locations
+src/lib/blobstore.ts    IndexedDB stand-in for Supabase Storage, plus the upload retry queue
+src/components/         shared UI (voice recorder, part card, vehicle picker, forms, ...)
+src/app/                routes
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Connecting a backend later
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Swap the bodies of the `src/lib/api.ts` functions for Supabase queries.
+- Turn each exported action in `src/lib/store.ts` into a server action. Recompute prices, charges and payment rules on the server with `src/lib/rules.ts`.
+- `blobstore.uploadWithRetry` becomes a signed upload to the private buckets. `idb:` URLs become signed URLs.
+- The audio guide uses the browser's speech engine as a placeholder. Replace it with the pre-recorded files that admins upload.
