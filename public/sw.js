@@ -1,5 +1,5 @@
 // Minimal service worker: network-first for pages, offline fallback page.
-const CACHE = "partsbd-v1";
+const CACHE = "gaarihub-v2";
 const OFFLINE = "/offline";
 
 self.addEventListener("install", (e) => {

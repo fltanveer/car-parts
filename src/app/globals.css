@@ -1,35 +1,60 @@
 @import "tailwindcss";
 
+/*
+ * GaariHub design tokens.
+ * Colour meaning is fixed across all three panels (file 00 §2, rule 10):
+ *   ok   = green  (done / safe)
+ *   wait = yellow (pending / waiting)
+ *   bad  = red    (problem / cancel)
+ * The brand colour is teal so it never reads as a status.
+ */
 @theme {
   --font-sans: var(--font-hind), system-ui, sans-serif;
 
-  --color-ink: #1c1917;
-  --color-ink-2: #44403c;
-  --color-muted: #78716c;
-  --color-line: #e7e5e4;
-  --color-surface: #f5f5f4;
+  --color-ink: #0f172a;
+  --color-ink-2: #334155;
+  --color-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-surface: #f1f5f9;
   --color-card: #ffffff;
 
-  --color-accent: #f59e0b;
-  --color-accent-soft: #fef3c7;
-  --color-accent-ink: #78350f;
+  --color-brand: #0e7490;
+  --color-brand-2: #155e75;
+  --color-brand-soft: #cffafe;
+  --color-brand-ink: #164e63;
 
-  --color-danger: #dc2626;
   --color-ok: #15803d;
+  --color-ok-soft: #dcfce7;
+  --color-wait: #a16207;
+  --color-wait-bg: #eab308;
+  --color-wait-soft: #fef9c3;
+  --color-bad: #dc2626;
+  --color-bad-soft: #fee2e2;
 
-  /* Quality colours are fixed meaning (spec 4.7). */
-  --color-q-genuine: #15803d;
-  --color-q-genuine-soft: #dcfce7;
-  --color-q-oem: #1d4ed8;
-  --color-q-oem-soft: #dbeafe;
-  --color-q-after: #c2410c;
-  --color-q-after-soft: #ffedd5;
-  --color-q-recon: #57534e;
-  --color-q-recon-soft: #e7e5e4;
+  /* Source badges: 5 fixed colours (file 04 §3.1). */
+  --color-src-genuine: #15803d;
+  --color-src-genuine-soft: #dcfce7;
+  --color-src-oem: #1d4ed8;
+  --color-src-oem-soft: #dbeafe;
+  --color-src-after: #c2410c;
+  --color-src-after-soft: #ffedd5;
+  --color-src-local: #78350f;
+  --color-src-local-soft: #f5e6d3;
+  --color-src-unknown: #475569;
+  --color-src-unknown-soft: #e2e8f0;
+
+  /* Seller panel uses a warmer chrome so staff can tell panels apart. */
+  --color-seller: #7c2d12;
+  --color-admin: #1e293b;
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Rule 12: "large text" toggle. */
+html.large-text {
+  font-size: 112.5%;
 }
 
 body {
@@ -39,7 +64,6 @@ body {
   line-height: 1.55;
 }
 
-/* Bangla glyphs need a touch more line height in headings. */
 h1,
 h2,
 h3 {
@@ -48,7 +72,7 @@ h3 {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-accent);
+  outline: 3px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -61,7 +85,6 @@ h3 {
     box-shadow: 0 0 0 22px rgb(220 38 38 / 0);
   }
 }
-
 .recording-pulse {
   animation: pulse-ring 1.2s ease-out infinite;
 }
@@ -74,14 +97,28 @@ h3 {
     transform: translateY(0);
   }
 }
-
 .sheet-up {
   animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+@keyframes toast-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.toast-in {
+  animation: toast-in 180ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .recording-pulse,
-  .sheet-up {
+  .sheet-up,
+  .toast-in {
     animation: none;
   }
 }

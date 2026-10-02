@@ -2,7 +2,7 @@
 
 // IndexedDB blob store for voice notes and photos. Stands in for Supabase
 // Storage in the mock and doubles as the offline upload queue (spec 7.4).
-const DB = "partsbd-media";
+const DB = "gaarihub-media";
 const STORE = "blobs";
 
 const open = () =>

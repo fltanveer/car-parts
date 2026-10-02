@@ -3,9 +3,10 @@
 import { Camera, ImagePlus, Loader2, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { compressImage, resolveMediaUrl, uploadWithRetry } from "@/lib/blobstore";
-import { uid } from "@/lib/store";
+import { uid } from "@/lib/db/seed";
 import type { MediaItem } from "@/lib/types";
 import { useT } from "../providers/LangProvider";
+import { MediaImage } from "../ui/MediaImage";
 
 const MAX_IMAGE = 8 * 1024 * 1024;
 const MAX_VIDEO = 50 * 1024 * 1024;
@@ -18,13 +19,11 @@ export function MediaThumb({ item, onRemove }: { item: MediaItem; onRemove?: () 
   }, [item.url]);
   return (
     <div className="relative size-24 shrink-0 overflow-hidden rounded-xl border border-line bg-surface">
-      {url &&
-        (item.kind === "video" ? (
-          <video src={url} className="size-full object-cover" muted />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- local blob URL
-          <img src={url} alt={item.name} className="size-full object-cover" />
-        ))}
+      {item.kind === "video" && url ? (
+        <video src={url} className="size-full object-cover" muted />
+      ) : (
+        <MediaImage src={item.url} alt={item.name} className="size-full" />
+      )}
       {item.kind === "video" && <Video className="absolute left-1.5 top-1.5 size-4 text-white drop-shadow" />}
       {onRemove && (
         <button
@@ -119,7 +118,7 @@ export function PhotoUploader({
           </button>
         </div>
       )}
-      {error && <p className="text-sm font-medium text-danger">{error}</p>}
+      {error && <p className="text-sm font-medium text-bad">{error}</p>}
       <input ref={cam} type="file" accept={accept} capture="environment" hidden onChange={(e) => void add(e.target.files)} />
       <input ref={gal} type="file" accept={accept} multiple hidden onChange={(e) => void add(e.target.files)} />
     </div>

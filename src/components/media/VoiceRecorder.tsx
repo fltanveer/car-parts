@@ -3,9 +3,11 @@
 import clsx from "clsx";
 import { Check, Loader2, Mic, MicOff, RotateCcw, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { settings } from "@/lib/api";
+import { settings } from "@/lib/mock/settings";
 import { uploadWithRetry } from "@/lib/blobstore";
-import { getState, setState, uid } from "@/lib/store";
+import { markSeenVoiceNotice } from "@/lib/db/actions";
+import { uid } from "@/lib/db/seed";
+import { getDb } from "@/lib/db/store";
 import type { VoiceNote } from "@/lib/types";
 import { useT } from "../providers/LangProvider";
 import { Button } from "../ui/primitives";
@@ -77,12 +79,12 @@ export function VoiceRecorder({
 
   const begin = () => {
     // Privacy notice + mic explanation before first permission prompt (spec 7.4, 9.6).
-    if (!getState().seenVoiceNotice) setPhase("explain");
+    if (!getDb().seenVoiceNotice) setPhase("explain");
     else void start();
   };
 
   const start = async () => {
-    setState(() => ({ seenVoiceNotice: true }));
+    markSeenVoiceNotice();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -180,8 +182,8 @@ export function VoiceRecorder({
 
   if (phase === "denied")
     return (
-      <div className="space-y-3 rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm">
-        <p className="flex items-center gap-2 font-semibold text-danger">
+      <div className="space-y-3 rounded-2xl border border-bad/30 bg-bad/5 p-4 text-sm">
+        <p className="flex items-center gap-2 font-semibold text-bad">
           <MicOff className="size-5" /> {tx("মাইক চালু করা যায়নি", "Microphone blocked")}
         </p>
         <p>{tx("ব্রাউজারের সেটিংসে মাইক অনুমতি দিন, অথবা ছবি দিন / কল করুন।", "Allow the mic in browser settings, or send a photo / call us.")}</p>
@@ -196,7 +198,7 @@ export function VoiceRecorder({
       <div className="space-y-3 rounded-2xl border border-line bg-card p-4">
         {previewUrl && <VoicePlayer src={previewUrl} duration={seconds} />}
         {retrying > 0 && (
-          <p className="text-sm font-medium text-accent-ink">{tx("নেট ধীর, আবার চেষ্টা করছি…", "Slow network, retrying…")}</p>
+          <p className="text-sm font-medium text-wait">{tx("নেট ধীর, আবার চেষ্টা করছি…", "Slow network, retrying…")}</p>
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" size="lg" onClick={redo} disabled={phase === "uploading"}>
@@ -222,18 +224,18 @@ export function VoiceRecorder({
         className={clsx(
           "grid place-items-center rounded-full text-white shadow-lg transition-transform active:scale-95",
           compact ? "size-20" : "size-28",
-          recording ? "recording-pulse bg-danger" : "bg-danger hover:brightness-110",
+          recording ? "recording-pulse bg-bad" : "bg-bad hover:brightness-110",
         )}
       >
         {recording ? <Square className={compact ? "size-8" : "size-10"} fill="currentColor" /> : <Mic className={compact ? "size-9" : "size-12"} />}
       </button>
       {recording ? (
         <>
-          <p className={clsx("text-2xl font-bold tabular-nums", warn && "text-danger")}>
+          <p className={clsx("text-2xl font-bold tabular-nums", warn && "text-bad")}>
             {mmss(seconds)} <span className="text-base font-normal text-muted">/ {mmss(settings.max_voice_seconds)}</span>
           </p>
           <div className="h-2 w-40 overflow-hidden rounded-full bg-line" aria-hidden>
-            <div className="h-full rounded-full bg-danger transition-[width] duration-75" style={{ width: `${Math.max(6, level * 100)}%` }} />
+            <div className="h-full rounded-full bg-bad transition-[width] duration-75" style={{ width: `${Math.max(6, level * 100)}%` }} />
           </div>
           <p className="text-sm font-medium">
             {warn ? tx("সময় প্রায় শেষ, কথা শেষ করুন", "Almost out of time") : tx("বলা শেষ হলে আবার চাপুন", "Tap again when done")}

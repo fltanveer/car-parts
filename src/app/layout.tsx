@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Hind_Siliguri } from "next/font/google";
 import { cookies } from "next/headers";
-import { FloatingActionBar } from "@/components/layout/FloatingActionBar";
-import { Header } from "@/components/layout/Header";
 import { LangProvider } from "@/components/providers/LangProvider";
 import { ServiceWorker } from "@/components/providers/ServiceWorker";
+import { Toaster } from "@/components/shared/Misc";
 import "./globals.css";
 
 const hind = Hind_Siliguri({
@@ -15,26 +14,26 @@ const hind = Hind_Siliguri({
 });
 
 export const metadata: Metadata = {
-  title: { default: "PartsBD · গাড়ির পার্টস, মান লেখা থাকে", template: "%s · PartsBD" },
-  description: "ন্যায্য দামে গাড়ির পার্টস। জেনুইন, সমমানের, আফটারমার্কেট, রিকন্ডিশন স্পষ্ট লেখা। না পেলে আমরা এনে দিই।",
+  title: { default: "GaariHub · গাড়ির সব কিছু এক অ্যাপে", template: "%s · GaariHub" },
+  description: "যাচাইকৃত দোকান থেকে গাড়ির পার্টস। দাম তুলনা করুন, পার্ট চাইলে দোকানগুলো দাম দেবে, টাকা নিরাপদ।",
   manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1c1917",
+  themeColor: "#0e7490",
   width: "device-width",
   initialScale: 1,
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+// One root layout; the customer app, /seller and /admin each add their own shell.
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = (await cookies()).get("lang")?.value === "en" ? "en" : "bn";
   return (
     <html lang={lang} className={`${hind.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <LangProvider lang={lang}>
-          <Header />
-          <main className="flex-1 pb-28 pt-4">{children}</main>
-          <FloatingActionBar />
+          {children}
+          <Toaster />
         </LangProvider>
         <ServiceWorker />
       </body>
